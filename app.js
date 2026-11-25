@@ -19,8 +19,12 @@
     messageEl.hidden = !text;
   }
 
-  // Map a header row to our columns by matching Hebrew keywords, so small wording differences still work.
+  // Find a column by name: exact match first (in the order of `words`), then partial match.
   function findKey(keys, words) {
+    for (const w of words) {
+      const exact = keys.find((k) => String(k).trim() === w);
+      if (exact !== undefined) return exact;
+    }
     return keys.find((k) => words.some((w) => String(k).includes(w)));
   }
 
@@ -46,34 +50,43 @@
     return null;
   }
 
+  // Reads every sheet. In each sheet, the header row is the first row that has a date column
+  // ("תאריך" or "תאריך עסקה"). Bank exports put a few title rows above it, so this skips them.
   function readWorkbook(buffer) {
     const wb = XLSX.read(buffer, { type: "array", cellDates: true });
-    const sheetName = wb.SheetNames.includes("הוצאות") ? "הוצאות" : wb.SheetNames[0];
-    return XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: "" });
+    const records = [];
+    for (const name of wb.SheetNames) {
+      const grid = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: "", raw: true });
+      const headerIdx = grid.findIndex((row) =>
+        row.some((c) => ["תאריך", "תאריך עסקה"].includes(String(c).trim()))
+      );
+      if (headerIdx < 0) continue;
+      const headers = grid[headerIdx].map((h) => String(h).trim());
+      for (const row of grid.slice(headerIdx + 1)) {
+        const obj = {};
+        headers.forEach((h, i) => { if (h) obj[h] = row[i]; });
+        records.push(obj);
+      }
+    }
+    return records;
   }
 
   function normalize(rawRows) {
-    if (!rawRows.length) return { rows: [], skipped: 0 };
-    const keys = Object.keys(rawRows[0]);
-    const kDate = findKey(keys, ["תאריך"]);
-    const kDesc = findKey(keys, ["תיאור"]);
-    const kAmount = findKey(keys, ["סכום"]);
-    const kCat = findKey(keys, ["סוג", "קטגוריה"]);
-    const kPay = findKey(keys, ["אמצעי"]);
-
-    if (!kDate || !kAmount) {
-      throw new Error("לא מצאתי עמודות של תאריך וסכום בקובץ. בדקו את שורת הכותרות.");
-    }
-
     const rows = [];
-    let skipped = 0;
     for (const r of rawRows) {
+      const keys = Object.keys(r);
+      const kDate = findKey(keys, ["תאריך עסקה", "תאריך"]);
+      const kAmount = findKey(keys, ["סכום חיוב", "סכום הוצאה", "סכום"]);
+      const kDesc = findKey(keys, ["תיאור", "שם בית העסק"]);
+      const kCat = findKey(keys, ["סוג הוצאה", "קטגוריה"]);
+      const kPay = findKey(keys, ["אמצעי תשלום"]);
+
+      if (!kDate || !kAmount) continue;
       const date = parseDate(r[kDate]);
       const amount = parseAmount(r[kAmount]);
-      if (!date || !Number.isFinite(amount)) {
-        skipped++;
-        continue;
-      }
+      // Skips total rows, blank rows and rows without a valid date or amount.
+      if (!date || !Number.isFinite(amount)) continue;
+
       rows.push({
         date,
         monthKey: date.getFullYear() * 100 + date.getMonth(),
@@ -83,7 +96,7 @@
         payment: String(kPay ? r[kPay] : "").trim(),
       });
     }
-    return { rows, skipped };
+    return { rows };
   }
 
   function fillMonths() {
@@ -213,17 +226,17 @@
     try {
       const buffer = await file.arrayBuffer();
       const raw = readWorkbook(buffer);
-      const { rows, skipped } = normalize(raw);
+      if (!raw.length) {
+        throw new Error("לא מצאתי בקובץ שורת כותרות עם עמודת תאריך.");
+      }
+      const { rows } = normalize(raw);
       if (!rows.length) {
-        throw new Error("לא נמצאו שורות תקינות בקובץ.");
+        throw new Error("לא נמצאו שורות הוצאה תקינות בקובץ.");
       }
       allRows = rows;
       fillMonths();
       dashboard.hidden = false;
       render();
-      if (skipped) {
-        showMessage("דילגתי על " + skipped + " שורות שאין בהן תאריך או סכום תקינים.");
-      }
     } catch (err) {
       dashboard.hidden = true;
       showMessage(err.message || "לא הצלחתי לקרוא את הקובץ.");
