@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>סיכום הוצאות חודשי</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <h1>סיכום הוצאות</h1>
+        <p class="muted" id="periodLabel">העלו קובץ אקסל כדי להתחיל</p>
+      </div>
+      <div class="actions">
+        <select id="monthSelect" class="select" hidden></select>
+        <label class="btn" for="fileInput">העלאת קובץ אקסל</label>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
+      </div>
+    </header>
+
+    <div id="dropzone" class="dropzone">
+      <div class="dz-icon">XLS</div>
+      <div>
+        <div class="dz-title">גררו לכאן קובץ אקסל של ההוצאות</div>
+        <div class="muted small">העמודות: תאריך, תיאור, סכום, סוג הוצאה, אמצעי תשלום, הערות.<br>הקובץ נשאר במחשב שלכם ולא נשלח לשרת.</div>
+      </div>
+    </div>
+
+    <p id="message" class="message" hidden></p>
+
+    <section id="dashboard" hidden>
+      <div class="kpis">
+        <div class="card kpi">
+          <div class="muted">סה״כ הוצאות</div>
+          <div class="kpi-value" id="kpiTotal">₪0</div>
+        </div>
+        <div class="card kpi">
+          <div class="muted">מספר עסקאות</div>
+          <div class="kpi-value" id="kpiCount">0</div>
+        </div>
+        <div class="card kpi">
+          <div class="muted">הקטגוריה הגדולה</div>
+          <div class="kpi-value" id="kpiTop">-</div>
+        </div>
+        <div class="card kpi">
+          <div class="muted">ממוצע לעסקה</div>
+          <div class="kpi-value" id="kpiAvg">₪0</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>הוצאה לפי קטגוריה</h2>
+          <div id="categoryBars" class="bars"></div>
+        </div>
+
+        <div class="card">
+          <h2>עסקאות</h2>
+          <div class="filter">
+            <select id="categoryFilter" class="select"></select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>תאריך</th><th>תיאור</th><th>קטגוריה</th><th>סכום</th></tr>
+              </thead>
+              <tbody id="txBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
