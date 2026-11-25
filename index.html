@@ -25,6 +25,12 @@
       </div>
     </header>
 
+    <nav id="tabs" class="tabs" hidden>
+      <button class="tab active" data-page="summary" type="button">סיכום</button>
+      <button class="tab" data-page="shared" type="button">הוצאות משותפות</button>
+      <button class="tab" data-page="tips" type="button">המלצות</button>
+    </nav>
+
     <div id="dropzone" class="dropzone">
       <div class="dz-icon">XLS</div>
       <div>
@@ -76,6 +82,22 @@
           </div>
         </div>
       </div>
+    </section>
+
+    <section id="sharedSection" class="card page" hidden>
+      <h2>הוצאות משותפות</h2>
+      <p class="muted small">סמנו עסקאות שמשותפות איתו/ה, וקבעו את החלק שלו/שלה באחוזים (ברירת מחדל 50%).</p>
+      <div class="partner-row">
+        <label for="partnerName" class="muted small">שם השותף/ה</label>
+        <input id="partnerName" class="text-input" type="text" placeholder="למשל: דנה">
+      </div>
+      <div id="sharedSummary" class="shared-summary"></div>
+      <div id="sharedList" class="shared-list"></div>
+    </section>
+
+    <section id="tipsSection" class="card page" hidden>
+      <h2>המלצות לחיסכון</h2>
+      <div id="tipsList" class="tips"></div>
     </section>
   </div>
 

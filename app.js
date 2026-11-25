@@ -1,19 +1,36 @@
 (function () {
   "use strict";
 
-  const fileInput = document.getElementById("fileInput");
-  const dropzone = document.getElementById("dropzone");
-  const messageEl = document.getElementById("message");
-  const dashboard = document.getElementById("dashboard");
-  const monthSelect = document.getElementById("monthSelect");
-  const categoryFilter = document.getElementById("categoryFilter");
-  const periodLabel = document.getElementById("periodLabel");
+  const $ = (id) => document.getElementById(id);
+  const fileInput = $("fileInput");
+  const dropzone = $("dropzone");
+  const messageEl = $("message");
+  const monthSelect = $("monthSelect");
+  const categoryFilter = $("categoryFilter");
+  const periodLabel = $("periodLabel");
+  const clearBtn = $("clearBtn");
+  const tabs = $("tabs");
+  const sections = {
+    summary: $("dashboard"),
+    shared: $("sharedSection"),
+    tips: $("tipsSection"),
+  };
+  const partnerInput = $("partnerName");
+  const sharedList = $("sharedList");
+  const sharedSummary = $("sharedSummary");
+  const tipsList = $("tipsList");
 
   let allRows = [];
+  let currentPage = "summary";
 
-  // Saved data lives in this browser only (localStorage), so it never leaves the device.
+  // Everything is stored in this browser only (localStorage), so it never leaves the device.
   const STORAGE_KEY = "expense-summary-v1";
-  const clearBtn = document.getElementById("clearBtn");
+  const SHARED_KEY = "expense-shared-v1";
+
+  const fmt = (n) => "₪" + Math.round(n).toLocaleString("en-US");
+  const MONTHS = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+
+  // ---------- storage ----------
 
   function loadSaved() {
     try {
@@ -46,11 +63,26 @@
     } catch (e) {
       showMessage("לא הצלחתי לשמור את הנתונים בדפדפן, הם יישארו רק עד שתסגרו את הדף.");
     }
-    clearBtn.hidden = !rows.length;
   }
 
-  const fmt = (n) => "₪" + Math.round(n).toLocaleString("en-US");
-  const MONTHS = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+  function loadShared() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SHARED_KEY) || "null");
+      return s && typeof s === "object" ? { partner: s.partner || "", shares: s.shares || {} } : { partner: "", shares: {} };
+    } catch (e) {
+      return { partner: "", shares: {} };
+    }
+  }
+
+  let shared = loadShared();
+
+  function saveShared() {
+    try {
+      localStorage.setItem(SHARED_KEY, JSON.stringify(shared));
+    } catch (e) { /* storage unavailable: keep working in memory */ }
+  }
+
+  // ---------- parsing ----------
 
   function showMessage(text) {
     messageEl.textContent = text;
@@ -76,7 +108,6 @@
   function parseDate(value) {
     if (value instanceof Date && !isNaN(value)) return value;
     if (typeof value === "number") {
-      // Excel serial date
       const d = new Date(Math.round((value - 25569) * 86400 * 1000));
       return isNaN(d) ? null : d;
     }
@@ -137,33 +168,17 @@
     return { rows };
   }
 
-  function fillMonths() {
-    const keys = [...new Set(allRows.map((r) => r.monthKey))].sort((a, b) => b - a);
-    monthSelect.innerHTML = "";
-    for (const key of keys) {
-      const opt = document.createElement("option");
-      const year = Math.floor(key / 100);
-      const month = key % 100;
-      opt.value = String(key);
-      opt.textContent = MONTHS[month] + " " + year;
-      monthSelect.appendChild(opt);
-    }
-    monthSelect.hidden = keys.length === 0;
+  // ---------- helpers ----------
+
+  function prevMonthKey(key) {
+    const y = Math.floor(key / 100);
+    const m = key % 100;
+    return m === 0 ? (y - 1) * 100 + 11 : key - 1;
   }
 
   function currentRows() {
     const key = Number(monthSelect.value);
     return allRows.filter((r) => r.monthKey === key);
-  }
-
-  function renderKpis(rows) {
-    const total = rows.reduce((s, r) => s + r.amount, 0);
-    const byCat = groupByCategory(rows);
-    const top = byCat[0];
-    document.getElementById("kpiTotal").textContent = fmt(total);
-    document.getElementById("kpiCount").textContent = rows.length.toLocaleString("en-US");
-    document.getElementById("kpiTop").textContent = top ? top.name : "-";
-    document.getElementById("kpiAvg").textContent = rows.length ? fmt(total / rows.length) : "₪0";
   }
 
   function groupByCategory(rows) {
@@ -172,8 +187,50 @@
     return [...map.entries()].map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total);
   }
 
+  // ---------- month selector and pages ----------
+
+  function fillMonths() {
+    const keys = [...new Set(allRows.map((r) => r.monthKey))].sort((a, b) => b - a);
+    const previous = monthSelect.value;
+    monthSelect.innerHTML = "";
+    for (const key of keys) {
+      const opt = document.createElement("option");
+      opt.value = String(key);
+      opt.textContent = MONTHS[key % 100] + " " + Math.floor(key / 100);
+      monthSelect.appendChild(opt);
+    }
+    if (keys.map(String).includes(previous)) monthSelect.value = previous;
+    monthSelect.hidden = keys.length === 0;
+  }
+
+  function refreshVisibility() {
+    const has = allRows.length > 0;
+    tabs.hidden = !has;
+    sections.summary.hidden = !has || currentPage !== "summary";
+    sections.shared.hidden = !has || currentPage !== "shared";
+    sections.tips.hidden = !has || currentPage !== "tips";
+    document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.page === currentPage));
+  }
+
+  function showPage(name) {
+    currentPage = name;
+    refreshVisibility();
+    render();
+  }
+
+  // ---------- summary page ----------
+
+  function renderKpis(rows) {
+    const total = rows.reduce((s, r) => s + r.amount, 0);
+    const byCat = groupByCategory(rows);
+    $("kpiTotal").textContent = fmt(total);
+    $("kpiCount").textContent = rows.length.toLocaleString("en-US");
+    $("kpiTop").textContent = byCat[0] ? byCat[0].name : "-";
+    $("kpiAvg").textContent = rows.length ? fmt(total / rows.length) : "₪0";
+  }
+
   function renderBars(rows) {
-    const container = document.getElementById("categoryBars");
+    const container = $("categoryBars");
     container.innerHTML = "";
     const cats = groupByCategory(rows);
     const max = cats.length ? cats[0].total : 1;
@@ -218,7 +275,7 @@
   }
 
   function renderTransactions(rows) {
-    const body = document.getElementById("txBody");
+    const body = $("txBody");
     body.innerHTML = "";
     const selected = categoryFilter.value;
     const list = rows
@@ -249,15 +306,231 @@
     }
   }
 
+  // ---------- shared expenses page ----------
+
+  function renderShared(rows) {
+    if (document.activeElement !== partnerInput) partnerInput.value = shared.partner;
+    sharedList.innerHTML = "";
+
+    const list = rows.slice().sort((a, b) => b.date - a.date);
+    for (const r of list) {
+      const key = rowKey(r);
+      const pct = shared.shares[key];
+
+      const line = document.createElement("div");
+      line.className = "shared-row";
+
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.checked = pct !== undefined;
+      box.id = "s" + sharedList.children.length;
+
+      const label = document.createElement("label");
+      label.htmlFor = box.id;
+      label.className = "shared-main";
+      const name = document.createElement("span");
+      name.textContent = r.description || r.category;
+      const meta = document.createElement("span");
+      meta.className = "muted small";
+      meta.textContent = r.date.toLocaleDateString("he-IL") + " · " + r.category;
+      label.append(name, meta);
+
+      const amt = document.createElement("span");
+      amt.className = "num";
+      amt.textContent = fmt(r.amount);
+
+      const share = document.createElement("input");
+      share.type = "number";
+      share.min = "0";
+      share.max = "100";
+      share.step = "5";
+      share.className = "pct";
+      share.value = pct !== undefined ? pct : 50;
+      share.disabled = !box.checked;
+      share.title = "חלקו של השותף/ה באחוזים";
+
+      box.addEventListener("change", () => {
+        if (box.checked) shared.shares[key] = Number(share.value) || 50;
+        else delete shared.shares[key];
+        share.disabled = !box.checked;
+        saveShared();
+        renderSharedSummary(rows);
+      });
+
+      share.addEventListener("change", () => {
+        const v = Math.min(100, Math.max(0, Number(share.value) || 0));
+        share.value = v;
+        if (box.checked) shared.shares[key] = v;
+        saveShared();
+        renderSharedSummary(rows);
+      });
+
+      line.append(box, label, amt, share);
+      sharedList.appendChild(line);
+    }
+    renderSharedSummary(rows);
+  }
+
+  function renderSharedSummary(rows) {
+    const marked = rows.filter((r) => shared.shares[rowKey(r)] !== undefined);
+    const total = marked.reduce((s, r) => s + r.amount, 0);
+    const owed = marked.reduce((s, r) => s + (r.amount * shared.shares[rowKey(r)]) / 100, 0);
+    const who = shared.partner.trim() || "השותף/ה";
+    sharedSummary.innerHTML = "";
+
+    const lines = [
+      ["הוצאות משותפות החודש", fmt(total) + " (" + marked.length + " עסקאות)"],
+      [who + " חייב/ת לך", fmt(owed)],
+    ];
+    for (const [label, value] of lines) {
+      const row = document.createElement("div");
+      row.className = "sum-row";
+      const l = document.createElement("span");
+      l.className = "muted";
+      l.textContent = label;
+      const v = document.createElement("span");
+      v.className = "kpi-value small-value";
+      v.textContent = value;
+      row.append(l, v);
+      sharedSummary.appendChild(row);
+    }
+    const note = document.createElement("p");
+    note.className = "muted small";
+    note.textContent = "החישוב מניח שאתם שילמתם את כל ההוצאות שסומנו. ההתחשבנות נשמרת בדפדפן הזה.";
+    sharedSummary.appendChild(note);
+  }
+
+  partnerInput.addEventListener("input", () => {
+    shared.partner = partnerInput.value;
+    saveShared();
+    renderSharedSummary(currentRows());
+  });
+
+  // ---------- recommendations page ----------
+
+  const SUB_WORDS = [
+    "netflix", "spotify", "apple", "google", "youtube", "patreon", "disney", "hbo",
+    "chatgpt", "openai", "claude", "adobe", "microsoft", "icloud", "amazon prime",
+  ];
+
+  function isSubscription(r) {
+    const desc = r.description.toLowerCase();
+    return r.category.includes("מנוי") || SUB_WORDS.some((w) => desc.includes(w));
+  }
+
+  function buildTips(rows) {
+    const tips = [];
+    const prevKey = prevMonthKey(Number(monthSelect.value));
+    const prev = allRows.filter((r) => r.monthKey === prevKey);
+    const total = rows.reduce((s, r) => s + r.amount, 0);
+
+    // 1. Categories that rose a lot compared with the previous month.
+    if (prev.length) {
+      const prevCats = new Map(groupByCategory(prev).map((c) => [c.name, c.total]));
+      for (const c of groupByCategory(rows)) {
+        const before = prevCats.get(c.name) || 0;
+        const diff = c.total - before;
+        if (before > 0 && diff >= 200 && c.total > before * 1.2) {
+          const pct = Math.round((diff / before) * 100);
+          tips.push({
+            title: "עלייה ב" + c.name,
+            text: "ההוצאה על " + c.name + " עלתה ב-" + pct + "% (" + fmt(diff) + ") לעומת החודש הקודם. כדאי לבדוק מה השתנה.",
+          });
+        }
+      }
+    }
+
+    // 2. Subscriptions.
+    const subs = rows.filter(isSubscription);
+    if (subs.length) {
+      const subTotal = subs.reduce((s, r) => s + r.amount, 0);
+      tips.push({
+        title: "מנויים",
+        text: "זוהו " + subs.length + " עסקאות של מנויים או חיובים חוזרים, בסך " + fmt(subTotal) + " החודש. כדאי לבדוק אילו מהם בשימוש בפועל.",
+      });
+    }
+
+    // 3. Merchants charged several times in the same month.
+    const byMerchant = new Map();
+    for (const r of rows) {
+      if (!r.description) continue;
+      const m = byMerchant.get(r.description) || { count: 0, total: 0 };
+      m.count += 1;
+      m.total += r.amount;
+      byMerchant.set(r.description, m);
+    }
+    const repeated = [...byMerchant.entries()].filter(([, m]) => m.count >= 3).sort((a, b) => b[1].total - a[1].total);
+    if (repeated.length) {
+      const [name, m] = repeated[0];
+      tips.push({
+        title: "חיובים חוזרים",
+        text: name + " חויב/ה " + m.count + " פעמים החודש, בסך " + fmt(m.total) + ". כדאי לבדוק אם זו הוצאה שאפשר לצמצם.",
+      });
+    }
+
+    // 4. Concentration on one merchant.
+    const topMerchant = [...byMerchant.entries()].sort((a, b) => b[1].total - a[1].total)[0];
+    if (topMerchant && topMerchant[1].total >= 300 && total > 0 && topMerchant[1].total / total >= 0.15) {
+      const pct = Math.round((topMerchant[1].total / total) * 100);
+      tips.push({
+        title: "עסק מרכזי",
+        text: topMerchant[0] + " מהווה " + pct + "% מכלל ההוצאות החודש (" + fmt(topMerchant[1].total) + ").",
+      });
+    }
+
+    // 5. A concrete savings target: 10% of the largest category that is not housing.
+    const SKIP_FOR_SAVINGS = ["דיור", "חשבונות", "העברת כספים"];
+    const candidate = groupByCategory(rows).find((c) => !SKIP_FOR_SAVINGS.includes(c.name));
+    if (candidate && candidate.total >= 500) {
+      const saving = Math.round(candidate.total * 0.1);
+      tips.push({
+        title: "יעד לחיסכון",
+        text: "קיצוץ של 10% ב" + candidate.name + " יחסוך " + fmt(saving) + " בחודש, כ-" + fmt(saving * 12) + " בשנה.",
+      });
+    }
+
+    if (!tips.length) {
+      tips.push({ title: "אין חריגות", text: "לא זיהיתי חריגות בחודש הזה לפי הכללים הפשוטים שלנו." });
+    }
+    return tips;
+  }
+
+  function renderTips(rows) {
+    tipsList.innerHTML = "";
+    for (const t of buildTips(rows)) {
+      const card = document.createElement("div");
+      card.className = "tip";
+      const title = document.createElement("div");
+      title.className = "tip-title";
+      title.textContent = t.title;
+      const text = document.createElement("div");
+      text.className = "muted";
+      text.textContent = t.text;
+      card.append(title, text);
+      tipsList.appendChild(card);
+    }
+    const note = document.createElement("p");
+    note.className = "muted small";
+    note.textContent = "ההמלצות מבוססות על כללים פשוטים מהנתונים שלכם, ואינן ייעוץ פיננסי.";
+    tipsList.appendChild(note);
+  }
+
+  // ---------- render ----------
+
   function render() {
     const rows = currentRows();
     renderKpis(rows);
     renderBars(rows);
     fillCategoryFilter(rows);
     renderTransactions(rows);
+    renderShared(rows);
+    renderTips(rows);
     const label = monthSelect.options[monthSelect.selectedIndex];
     periodLabel.textContent = label ? "סיכום ל" + label.textContent : "";
+    refreshVisibility();
   }
+
+  // ---------- upload ----------
 
   async function handleFile(file) {
     showMessage("");
@@ -280,7 +553,6 @@
       saveRows(allRows, file.name);
 
       fillMonths();
-      dashboard.hidden = false;
       render();
       showMessage(
         fresh.length
@@ -288,7 +560,6 @@
           : "לא נוספו עסקאות חדשות, כולן כבר שמורות."
       );
     } catch (err) {
-      dashboard.hidden = true;
       showMessage(err.message || "לא הצלחתי לקרוא את הקובץ.");
     }
   }
@@ -296,20 +567,27 @@
   clearBtn.addEventListener("click", () => {
     if (!confirm("למחוק את כל ההוצאות השמורות בדפדפן הזה?")) return;
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(SHARED_KEY);
+    shared = { partner: "", shares: {} };
     allRows = [];
     clearBtn.hidden = true;
-    dashboard.hidden = true;
+    monthSelect.innerHTML = "";
+    monthSelect.hidden = true;
+    render();
     showMessage("הנתונים השמורים נמחקו.");
   });
+
+  document.querySelectorAll(".tab").forEach((t) =>
+    t.addEventListener("click", () => showPage(t.dataset.page))
+  );
 
   // On load, show the saved expenses if there are any.
   (function restoreSaved() {
     const saved = loadSaved();
     if (!saved || !saved.rows.length) return;
     allRows = saved.rows.map(rowFromSaved);
-    fillMonths();
-    dashboard.hidden = false;
     clearBtn.hidden = false;
+    fillMonths();
     render();
   })();
 
