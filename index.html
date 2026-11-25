@@ -1,106 +1,372 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>סיכום הוצאות חודשי</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מנתח הוצאות אשראי</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--acc:#ea580c;--acc-d:#c2410c;--fg:#0f172a;--mut:#64748b;--line:#e2e8f0;--soft:#f1f5f9;--ok:#15803d;--bad:#b91c1c}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--fg);font-family:Heebo,system-ui,sans-serif}
+.wrap{max-width:560px;margin:0 auto;padding:28px 22px 48px;display:flex;flex-direction:column;gap:24px}
+[hidden]{display:none!important}
+h1{font-size:30px;font-weight:800;margin:0;line-height:1.2}
+h2{font-size:17px;font-weight:700;margin:0}
+.mut{color:var(--mut)}.ok{color:var(--ok)}.bad{color:var(--bad)}
+.lead{font-size:16px;line-height:1.6;color:#334155;margin:0}
+.steps{display:flex;flex-direction:column;gap:12px;margin:0;padding:0;list-style:none}
+.steps li{display:flex;gap:12px;align-items:center;font-size:15px}
+.steps b{flex:none;width:30px;height:30px;border-radius:50%;background:#ffedd5;color:var(--acc-d);display:flex;align-items:center;justify-content:center;font-size:14px}
+.drop{border:2px dashed #fdba74;border-radius:20px;padding:28px 18px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;background:#fff7ed}
+.drop.over{background:#ffedd5;border-color:var(--acc)}
+.btn{display:inline-flex;align-items:center;justify-content:center;border:0;background:var(--acc);color:#fff;font:inherit;font-size:15px;font-weight:700;border-radius:999px;padding:13px 24px;min-height:46px;cursor:pointer}
+.btn:focus-within,.btn:focus-visible,.tab:focus-visible,.ghost:focus-visible{outline:3px solid #fdba74;outline-offset:2px}
+.btn{position:relative;overflow:hidden}
+.btn input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0}
+.ghost{border:1px solid var(--line);background:#fff;color:var(--fg);font:inherit;font-size:13px;border-radius:999px;padding:8px 14px;min-height:40px;cursor:pointer}
+.note{font-size:13px;color:var(--mut);line-height:1.6;margin:0}
+.err{background:#fef2f2;color:var(--bad);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.5}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px}
+.nav{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tab{flex:1;border:0;background:none;font:inherit;font-size:15px;color:var(--mut);padding:12px 2px;min-height:46px;cursor:pointer;border-bottom:3px solid transparent}
+.tab[aria-pressed=true]{color:var(--fg);font-weight:700;border-bottom-color:var(--acc)}
+.sec{display:flex;flex-direction:column;gap:24px}
+.lbl{font-size:14px;color:var(--mut)}
+.big{font-size:52px;font-weight:800;letter-spacing:-1px;line-height:1.05;font-variant-numeric:tabular-nums}
+.sub{font-size:14px}
+.cols{display:flex;align-items:flex-end;gap:10px;height:124px;border-bottom:1px solid var(--line)}
+.col{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px}
+.col span{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+.col i{display:block;width:100%;border-radius:6px 6px 0 0}
+.mon{display:flex;gap:10px;margin-top:8px}
+.mon span{flex:1;min-width:0;text-align:center;font-size:12px;color:#475569;overflow:hidden;white-space:nowrap}
+.list{display:flex;flex-direction:column;gap:16px}
+.row{display:flex;flex-direction:column;gap:6px}
+.line{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:15px}
+.line b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.line small{color:var(--mut);font-size:12px}
+.track{height:6px;background:var(--soft);border-radius:3px}
+.fill{height:6px;border-radius:3px;background:var(--acc)}
+.card{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.card .n{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
+details summary{list-style:none;cursor:pointer;min-height:44px;display:flex;flex-direction:column;gap:6px;justify-content:center}
+details summary::-webkit-details-marker{display:none}
+.tx{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:7px 0;border-bottom:1px solid var(--soft)}
+.tx span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tx small{color:var(--mut)}
+.item{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.item>div{display:flex;flex-direction:column;gap:4px;min-width:0;align-items:flex-start}
+.item strong{font-size:15px;font-weight:700}
+.item small{font-size:13px;color:var(--mut)}
+.item>b{font-size:17px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--mut)}
+.x{border:0;background:none;color:var(--acc-d);font:inherit;font-size:13px;padding:6px 0;min-height:32px;cursor:pointer;text-decoration:underline}
+</style>
 </head>
 <body>
-  <div class="app">
-    <header class="topbar">
-      <div>
-        <h1>סיכום הוצאות</h1>
-        <p class="muted" id="periodLabel">העלו קובץ אקסל כדי להתחיל</p>
-      </div>
-      <div class="actions">
-        <select id="monthSelect" class="select" hidden></select>
-        <label class="btn" for="fileInput">העלאת קובץ אקסל</label>
-        <button id="clearBtn" class="btn btn-ghost" type="button" hidden>מחיקת הנתונים</button>
-        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
-      </div>
-    </header>
-
-    <nav id="tabs" class="tabs" hidden>
-      <button class="tab active" data-page="summary" type="button">סיכום</button>
-      <button class="tab" data-page="shared" type="button">הוצאות משותפות</button>
-      <button class="tab" data-page="tips" type="button">המלצות</button>
-    </nav>
-
-    <div id="dropzone" class="dropzone">
-      <div class="dz-icon">XLS</div>
-      <div>
-        <div class="dz-title">גררו לכאן קובץ אקסל של ההוצאות</div>
-        <div class="muted small">העמודות: תאריך, תיאור, סכום, סוג הוצאה, אמצעי תשלום, הערות.<br>הקובץ נשאר במחשב שלכם ולא נשלח לשרת.</div>
-      </div>
-    </div>
-
-    <p id="message" class="message" hidden></p>
-
-    <section id="dashboard" hidden>
-      <div class="kpis">
-        <div class="card kpi">
-          <div class="muted">סה״כ הוצאות</div>
-          <div class="kpi-value" id="kpiTotal">₪0</div>
-        </div>
-        <div class="card kpi">
-          <div class="muted">מספר עסקאות</div>
-          <div class="kpi-value" id="kpiCount">0</div>
-        </div>
-        <div class="card kpi">
-          <div class="muted">הקטגוריה הגדולה</div>
-          <div class="kpi-value" id="kpiTop">-</div>
-        </div>
-        <div class="card kpi">
-          <div class="muted">ממוצע לעסקה</div>
-          <div class="kpi-value" id="kpiAvg">₪0</div>
-        </div>
-      </div>
-
-      <div class="grid">
-        <div class="card">
-          <h2>הוצאה לפי קטגוריה</h2>
-          <div id="categoryBars" class="bars"></div>
-        </div>
-
-        <div class="card">
-          <h2>עסקאות</h2>
-          <div class="filter">
-            <select id="categoryFilter" class="select"></select>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr><th>תאריך</th><th>תיאור</th><th>קטגוריה</th><th>סכום</th></tr>
-              </thead>
-              <tbody id="txBody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="sharedSection" class="card page" hidden>
-      <h2>הוצאות משותפות</h2>
-      <p class="muted small">סמנו עסקאות שמשותפות איתו/ה, וקבעו את החלק שלו/שלה באחוזים (ברירת מחדל 50%).</p>
-      <div class="partner-row">
-        <label for="partnerName" class="muted small">שם השותף/ה</label>
-        <input id="partnerName" class="text-input" type="text" placeholder="למשל: דנה">
-      </div>
-      <div id="sharedSummary" class="shared-summary"></div>
-      <div id="sharedList" class="shared-list"></div>
-    </section>
-
-    <section id="tipsSection" class="card page" hidden>
-      <h2>המלצות לחיסכון</h2>
-      <div id="tipsList" class="tips"></div>
-    </section>
+<main class="wrap" id="start">
+  <h1>לאן הכסף שלך הולך?</h1>
+  <p class="lead">מעלים את פירוט האשראי מאקסל, ומקבלים חלוקה לקטגוריות, ממוצעים, מנויים והמלצות לחיסכון.</p>
+  <ol class="steps">
+    <li><b>1</b><span>מייצאים לאקסל את פירוט העסקאות מאתר חברת האשראי</span></li>
+    <li><b>2</b><span>בוחרים כאן את הקובץ (אפשר כמה קבצים יחד)</span></li>
+    <li><b>3</b><span>מקבלים את התמונה המלאה תוך שנייה</span></li>
+  </ol>
+  <div class="drop" id="drop">
+    <label class="btn">בחירת קובץ אקסל<input type="file" id="file" multiple aria-label="בחירת קובץ אקסל"></label>
+    <span class="note">או לגרור לכאן קובץ ‎.xlsx / .csv</span>
   </div>
+  <div class="err" id="err" role="alert" hidden></div>
+  <p class="note">הקובץ נקרא ומעובד בדפדפן שלך בלבד. שום נתון לא נשלח ולא נשמר. נבדק עם ייצוא של מקס; קבצים של חברות אחרות יעבדו אם יש בהם עמודות תאריך, שם בית עסק וסכום חיוב.</p>
+</main>
 
-  <script src="app.js"></script>
+<main class="wrap" id="app" hidden>
+  <div class="top"><span class="mut" id="period"></span><button type="button" class="ghost" id="reset">קובץ אחר</button></div>
+  <nav class="nav" aria-label="לשוניות">
+    <button type="button" class="tab" data-tab="overview" aria-pressed="true">סקירה</button>
+    <button type="button" class="tab" data-tab="categories" aria-pressed="false">קטגוריות</button>
+    <button type="button" class="tab" data-tab="subs" aria-pressed="false">מנויים</button>
+    <button type="button" class="tab" data-tab="savings" aria-pressed="false">חיסכון</button>
+  </nav>
+
+  <section class="sec" id="overview">
+    <div><div class="lbl">ממוצע הוצאות בחודש</div><div class="big" id="avg"></div><div class="sub" id="lastline"></div></div>
+    <div><div class="cols" id="cols" role="img" aria-label="סך ההוצאות בכל חודש"></div><div class="mon" id="mon"></div></div>
+    <div class="list"><h2>לאן הכסף הולך</h2><div class="list" id="top4"></div></div>
+    <div class="card"><div><div class="lbl">אפשר לחסוך בשנה</div><div class="n ok" id="save1"></div></div><button type="button" class="btn" data-tab="savings">להמלצות</button></div>
+  </section>
+
+  <section class="sec" id="categories" hidden>
+    <div><div class="lbl" id="totlbl"></div><div class="big" id="total"></div><div class="sub mut">ממוצע לחודש בכל קטגוריה · לחיצה פותחת את העסקאות</div></div>
+    <div class="list" id="cats"></div>
+  </section>
+
+  <section class="sec" id="subs" hidden>
+    <div><div class="lbl">חיובים קבועים בחודש</div><div class="big" id="submonth"></div><div class="sub mut" id="subyear"></div></div>
+    <div id="sublist"></div>
+  </section>
+
+  <section class="sec" id="savings" hidden>
+    <div><div class="lbl">אפשר לחסוך בשנה</div><div class="big ok" id="save2"></div><div class="sub mut">הערכה לפי הקצב של התקופה שבקובץ</div></div>
+    <div id="savlist"></div>
+    <div><h2>חיובים כפולים</h2><div id="duplist"></div></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const ils = (v) => '₪' + Math.round(v).toLocaleString('en-US');
+const ils2 = (v) => '₪' + (Math.round(v * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+const MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+const ml = (m) => MONTHS[+m.slice(5, 7) - 1];
+const sum = (a, f) => a.reduce((s, x) => s + f(x), 0);
+const CAT_MAP = { 'מזון וצריכה': 'סופר ומזון', 'מסעדות, קפה וברים': 'מסעדות וקפה', 'דלק, חשמל וגז': 'דלק ורכב', 'תחבורה ורכבים': 'דלק ורכב', 'קוסמטיקה וטיפוח': 'טיפוח', 'עיצוב הבית': 'בית', 'פנאי, בידור וספורט': 'פנאי', 'טיסות ותיירות': 'נסיעות לחו״ל', 'רפואה ובתי מרקחת': 'בריאות', 'מוצרי m_a_x': 'עמלות', 'שירותי תקשורת': 'מנויים ותקשורת', 'העברת כספים': 'העברות' };
+const RE_SUBS = /PATREON|GOOGLE|APPLE\.COM|NETFLIX|SPOTIFY|YOUTUBE|DISNEY|OPENAI|CHATGPT|ANTHROPIC|ICLOUD|MICROSOFT|ADOBE|DROPBOX|UBIGI|(^|\s)019(\s|$)|פרטנר|סלקום|פלאפון|הוט מובייל|גולן טלקום/;
+const RE_FEE = /דמי כרטיס|עמלת/;
+const RE_ONLINE = /AMAZON|AMZN|ALIEXPRESS|TEMU|SHEIN|EBAY|IHERB/;
+const RE_BIT = /(^|\s)BIT(\s|$)|PAYBOX|פייבוקס/;
+
+function parseDate(v) {
+  if (v == null || v === '') return null;
+  let y, m, d;
+  if (v instanceof Date) { const t = new Date(v.getTime() + 12 * 3600e3); y = t.getFullYear(); m = t.getMonth() + 1; d = t.getDate(); }
+  else if (typeof v === 'number') { if (v < 20000 || v > 80000) return null; const t = new Date(Date.UTC(1899, 11, 30) + v * 864e5); y = t.getUTCFullYear(); m = t.getUTCMonth() + 1; d = t.getUTCDate(); }
+  else {
+    const s = String(v).trim();
+    let k = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (k) { y = +k[1]; m = +k[2]; d = +k[3]; }
+    else { k = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/); if (!k) return null; d = +k[1]; m = +k[2]; y = +k[3]; if (y < 100) y += 2000; }
+  }
+  if (!(m >= 1 && m <= 12 && d >= 1 && d <= 31 && y > 2000)) return null;
+  return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+}
+function parseAmount(v) {
+  if (typeof v === 'number') return v;
+  if (v == null) return NaN;
+  const s = String(v).replace(/[^\d.,-]/g, '').replace(/,/g, '');
+  return s ? parseFloat(s) : NaN;
+}
+function parseSheet(rows, sheetName) {
+  let h = -1;
+  for (let i = 0; i < Math.min(rows.length, 40); i++) {
+    const c = (rows[i] || []).map((x) => String(x == null ? '' : x));
+    if (c.some((x) => /תאריך/.test(x)) && c.some((x) => /סכום/.test(x))) { h = i; break; }
+  }
+  if (h < 0) return [];
+  const head = rows[h].map((x) => String(x == null ? '' : x).trim());
+  const col = (res) => { for (const re of res) { const i = head.findIndex((x) => re.test(x)); if (i >= 0) return i; } return -1; };
+  const cDate = col([/תאריך עסקה/, /תאריך רכישה/, /תאריך/]);
+  const cName = col([/שם בית.?העסק/, /בית.?עסק/, /תיאור/, /פרטים/]);
+  const cAmt = col([/סכום חיוב/, /סכום לחיוב/, /סכום/]);
+  const cCat = col([/קטגוריה/, /ענף/]);
+  const cCard = col([/4 ספרות/, /כרטיס/]);
+  const cCur = col([/מטבע עסקה מקורי/, /מטבע מקור/]);
+  const cNote = col([/הערות/, /פירוט נוסף/]);
+  if (cDate < 0 || cName < 0 || cAmt < 0) return [];
+  const abroad = /חו["״']ל|מט["״']ח/.test(sheetName);
+  const out = [];
+  for (let i = h + 1; i < rows.length; i++) {
+    const r = rows[i] || [];
+    const date = parseDate(r[cDate]), amount = parseAmount(r[cAmt]);
+    const merchant = String(r[cName] == null ? '' : r[cName]).replace(/\s+/g, ' ').trim();
+    if (!date || !merchant || isNaN(amount)) continue;
+    const t = { date, month: date.slice(0, 7), merchant, amount, abroad,
+      rawCat: cCat >= 0 && r[cCat] ? String(r[cCat]).trim() : '', card: cCard >= 0 && r[cCard] != null ? String(r[cCard]).replace(/\.0$/, '') : '',
+      cur: cCur >= 0 && r[cCur] ? String(r[cCur]).trim() : '', note: cNote >= 0 && r[cNote] ? String(r[cNote]) : '' };
+    t.category = categorize(t);
+    out.push(t);
+  }
+  return out;
+}
+function categorize(t) {
+  const m = t.merchant.toUpperCase();
+  if (RE_BIT.test(m)) return 'העברות BIT';
+  if (RE_ONLINE.test(m)) return 'קניות אונליין';
+  if (RE_SUBS.test(m)) return 'מנויים ותקשורת';
+  if (RE_FEE.test(m)) return 'עמלות';
+  if (t.abroad && t.cur && !/₪|ILS|NIS|ש["״]ח/.test(t.cur)) return 'נסיעות לחו״ל';
+  return CAT_MAP[t.rawCat] || t.rawCat || 'שונות';
+}
+const cleanName = (n) => n.replace(/^PAYPAL \*/, '').replace(/\s+[\d-]{6,}.*$/, '').replace(/\s+[A-Z]{2}$/, '');
+
+function analyze(tx, notRecurring) {
+  const months = Array.from(new Set(tx.map((t) => t.month))).sort();
+  const n = months.length || 1;
+  const total = sum(tx, (t) => t.amount);
+  const byMonth = months.map((m) => { const v = tx.filter((t) => t.month === m); return { month: m, amount: sum(v, (t) => t.amount), count: v.length }; });
+  const cats = {};
+  tx.forEach((t) => { (cats[t.category] = cats[t.category] || []).push(t); });
+  const byCat = Object.keys(cats).map((c) => { const a = sum(cats[c], (t) => t.amount); return { category: c, amount: a, avg: a / n, share: total ? Math.round(a / total * 100) : 0, tx: cats[c].slice().sort((x, y) => y.amount - x.amount) }; }).sort((a, b) => b.amount - a.amount);
+
+  const groups = {};
+  tx.filter((t) => t.amount > 0 && t.category !== 'העברות BIT').forEach((t) => { (groups[t.merchant] = groups[t.merchant] || []).push(t); });
+  const subs = [];
+  Object.keys(groups).forEach((name) => {
+    if (notRecurring.has(name)) return;
+    const g = groups[name], ms = new Set(g.map((t) => t.month)).size;
+    const am = g.map((t) => t.amount).sort((a, b) => a - b), med = am[Math.floor(am.length / 2)];
+    const steady = am.every((a) => Math.abs(a - med) <= med * 0.1);
+    const known = RE_SUBS.test(name.toUpperCase()) || RE_FEE.test(name);
+    const monthly = steady && g.length <= ms + 1 && (ms >= 3 || (known && ms >= 2));
+    if (!monthly && !known) return;
+    const avg = sum(g, (t) => t.amount) / g.length;
+    subs.push({ key: name, name: cleanName(name), fee: RE_FEE.test(name), monthly, avg, yearly: monthly ? avg * 12 : null, card: g[g.length - 1].card });
+  });
+  subs.sort((a, b) => (b.yearly || 0) - (a.yearly || 0));
+  const subYear = sum(subs, (s) => s.yearly || 0);
+
+  const dups = [], dg = {};
+  tx.filter((t) => t.amount > 0).forEach((t) => { const k = t.merchant + '|' + t.amount; (dg[k] = dg[k] || []).push(t); });
+  Object.keys(dg).forEach((k) => {
+    const g = dg[k].slice().sort((a, b) => a.date.localeCompare(b.date));
+    if (g.length < 2) return;
+    let close = false;
+    for (let i = 1; i < g.length; i++) if ((new Date(g[i].date) - new Date(g[i - 1].date)) / 864e5 <= 3) close = true;
+    if (!close) return;
+    const refunded = tx.some((t) => t.amount === -g[0].amount);
+    dups.push({ merchant: cleanName(g[0].merchant), amount: g[0].amount, times: g.length, dates: g.map((t) => t.date.slice(8) + '/' + t.date.slice(5, 7)).join(', '),
+      verdict: refunded ? 'נמצא זיכוי תואם' : g[0].amount < 20 ? 'כנראה רכישות נפרדות' : 'כדאי לבדוק', flag: !refunded && g[0].amount >= 20 });
+  });
+  dups.sort((a, b) => b.amount - a.amount);
+
+  const sav = [];
+  subs.filter((s) => s.fee && s.monthly).forEach((s) => sav.push({ title: 'לבטל דמי כרטיס' + (s.card ? ' (' + s.card + ')' : ''), detail: ils2(s.avg) + ' בחודש – אפשר לבקש פטור מחברת האשראי', yearly: s.yearly, effort: 'קל' }));
+  subs.filter((s) => !s.fee && s.monthly && s.avg >= 40).slice(0, 3).forEach((s) => sav.push({ title: 'לבדוק את ' + s.name, detail: ils(s.avg) + ' בחודש – עדיין בשימוש?', yearly: s.yearly, effort: 'קל' }));
+  const ilsAbroad = sum(tx.filter((t) => t.amount > 0 && /חו["״]ל בש["״]ח/.test(t.note)), (t) => t.amount);
+  if (ilsAbroad > 0) sav.push({ title: 'לשלם בדולרים באתרים זרים', detail: 'חיוב בשקלים באתר זר יקר בדרך כלל ב-2–4%', yearly: ilsAbroad / n * 12 * 0.03, effort: 'קל' });
+  const rest = byCat.find((c) => c.category === 'מסעדות וקפה');
+  if (rest && rest.avg > 200) sav.push({ title: 'להוריד 20% במסעדות ובקפה', detail: 'היום ' + ils(rest.avg) + ' בחודש בממוצע', yearly: rest.avg * 0.2 * 12, effort: 'בינוני' });
+  const fuel = sum(tx.filter((t) => /דלק/.test(t.rawCat) && t.amount > 0), (t) => t.amount);
+  if (fuel > 0) sav.push({ title: 'הנחת דלק במועדון או באפליקציה', detail: ils(fuel) + ' על דלק בתקופה', yearly: null, effort: 'קל' });
+  subs.filter((s) => !s.monthly).slice(0, 2).forEach((s) => sav.push({ title: 'לבדוק את ' + s.name, detail: 'חיוב של ' + ils(s.avg) + ' – לוודא שעדיין נחוץ', yearly: null, effort: 'קל' }));
+  const savYear = sum(sav, (s) => s.yearly || 0);
+  return { months, n, total, avg: total / n, byMonth, byCat, subs, subYear, dups, sav, savYear };
+}
+
+function bar(name, value, share, max, amount) {
+  const row = el('div', 'row'), line = el('div', 'line'), left = el('span', '', name + ' ');
+  if (share != null) left.append(el('small', '', share + '%'));
+  line.append(left, el('b', '', value));
+  const track = el('div', 'track'), fill = el('div', 'fill');
+  fill.style.width = Math.max(2, Math.min(100, Math.round(amount / max * 100))) + '%';
+  track.append(fill); row.append(line, track);
+  return row;
+}
+function item(title, sub, value, cls) {
+  const row = el('div', 'item'), left = el('div');
+  left.append(el('strong', '', title), el('small', '', sub));
+  row.append(left, el('b', cls || '', value));
+  return row;
+}
+
+let TX = [];
+const notRecurring = new Set();
+function render() {
+  const a = analyze(TX, notRecurring);
+  const first = a.months[0], last = a.months[a.months.length - 1];
+  $('period').textContent = (first === last ? ml(first) : ml(first) + '–' + ml(last)) + ' ' + last.slice(0, 4) + ' · ' + TX.length + ' עסקאות';
+  $('avg').textContent = ils(a.avg);
+  const lm = a.byMonth[a.byMonth.length - 1], ll = $('lastline');
+  ll.replaceChildren();
+  if (a.n > 1) {
+    const p = Math.round((lm.amount / a.avg - 1) * 100);
+    ll.append(ml(lm.month) + ': ', el('b', '', ils(lm.amount)), ' · ', el('span', p <= 0 ? 'ok' : 'bad', (p > 0 ? '+' : '') + p + '%'), ' מול הממוצע');
+  } else ll.append(el('span', 'mut', 'יש בקובץ חודש אחד בלבד. עם כמה חודשים הממוצעים מדויקים יותר.'));
+
+  const max = Math.max.apply(null, a.byMonth.map((m) => m.amount)) || 1;
+  $('cols').replaceChildren(); $('mon').replaceChildren();
+  a.byMonth.forEach((m) => {
+    const c = el('div', 'col'), b = el('i');
+    b.style.height = Math.max(3, Math.round(m.amount / max * 96)) + 'px';
+    b.style.background = m.amount > a.avg ? 'var(--acc)' : '#cbd5e1';
+    c.title = ml(m.month) + ': ' + ils(m.amount) + ' · ' + m.count + ' עסקאות';
+    c.append(el('span', '', '₪' + (m.amount / 1000).toFixed(1) + 'K'), b);
+    $('cols').append(c);
+    $('mon').append(el('span', '', a.n > 7 ? ml(m.month).slice(0, 3) : ml(m.month)));
+  });
+
+  const top = a.byCat[0] ? a.byCat[0].amount : 1;
+  $('top4').replaceChildren.apply($('top4'), a.byCat.slice(0, 4).map((c) => bar(c.category, ils(c.amount), null, top, c.amount)));
+  $('save1').textContent = $('save2').textContent = ils(a.savYear);
+
+  $('totlbl').textContent = 'סה״כ ב-' + a.n + (a.n === 1 ? ' חודש' : ' חודשים');
+  $('total').textContent = ils(a.total);
+  $('cats').replaceChildren();
+  a.byCat.forEach((c) => {
+    const det = el('details'), s = el('summary');
+    s.append.apply(s, Array.from(bar(c.category, ils(c.avg) + ' לחודש', c.share, top, c.amount).children));
+    det.append(s);
+    c.tx.forEach((t) => {
+      const line = el('div', 'tx'), name = el('span', '', t.merchant + ' ');
+      name.append(el('small', '', t.date.slice(8) + '/' + t.date.slice(5, 7)));
+      line.append(name, el('b', '', ils(t.amount)));
+      det.append(line);
+    });
+    $('cats').append(det);
+  });
+
+  $('submonth').textContent = ils(a.subYear / 12);
+  $('subyear').textContent = ils(a.subYear) + ' בשנה';
+  $('sublist').replaceChildren();
+  if (!a.subs.length) $('sublist').append(el('div', 'sub mut', 'לא זוהו חיובים קבועים'));
+  a.subs.forEach((s) => {
+    const row = item(s.name, (s.fee ? 'עמלה' : 'מנוי') + (s.card ? ' · כרטיס ' + s.card : '') + (s.monthly ? ' · ' + ils(s.yearly) + ' בשנה' : ' · חיוב אחד בתקופה'), ils(s.avg) + (s.monthly ? ' לחודש' : ''));
+    const x = el('button', 'x', 'זה לא חיוב קבוע');
+    x.type = 'button';
+    x.addEventListener('click', () => { notRecurring.add(s.key); render(); });
+    row.firstChild.append(x);
+    $('sublist').append(row);
+  });
+
+  $('savlist').replaceChildren();
+  if (!a.sav.length) $('savlist').append(el('div', 'sub mut', 'לא נמצאו המלצות בנתונים האלה'));
+  a.sav.forEach((s) => {
+    const row = item(s.title, s.detail, s.yearly == null ? 'לבדוק' : ils(s.yearly), s.yearly == null ? 'mut' : 'ok');
+    row.firstChild.append(el('span', 'pill', s.effort));
+    $('savlist').append(row);
+  });
+  $('duplist').replaceChildren();
+  if (!a.dups.length) $('duplist').append(el('div', 'sub mut', 'לא נמצאו חיובים כפולים'));
+  a.dups.forEach((d) => $('duplist').append(item(d.merchant, d.dates + ' · ' + d.verdict, d.times + ' × ' + ils2(d.amount), d.flag ? 'bad' : '')));
+}
+
+function openTab(id) {
+  document.querySelectorAll('.sec').forEach((s) => { s.hidden = s.id !== id; });
+  document.querySelectorAll('.tab').forEach((b) => { b.setAttribute('aria-pressed', b.dataset.tab === id ? 'true' : 'false'); });
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => openTab(b.dataset.tab)));
+
+function fail(msg) { $('err').textContent = msg; $('err').hidden = false; }
+function loadBuffers(buffers) {
+  if (typeof XLSX === 'undefined') { fail('רכיב קריאת האקסל לא נטען. בדוק את החיבור לאינטרנט ורענן את הדף.'); return; }
+  let tx = [];
+  try {
+    buffers.forEach((buf) => {
+      const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+      wb.SheetNames.forEach((name) => { tx = tx.concat(parseSheet(XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: null }), name)); });
+    });
+  } catch (e) { fail('לא הצלחתי לפתוח את הקובץ. ודא שזה קובץ אקסל (‎.xlsx) או CSV.'); return; }
+  if (!tx.length) { fail('לא מצאתי עסקאות בקובץ. צריך טבלה עם עמודות תאריך, שם בית עסק וסכום חיוב.'); return; }
+  TX = tx; notRecurring.clear();
+  $('err').hidden = true; $('start').hidden = true; $('app').hidden = false;
+  openTab('overview'); render();
+}
+window.loadBuffers = loadBuffers;
+function handle(files) {
+  const list = Array.from(files || []);
+  if (!list.length) return;
+  Promise.all(list.map((f) => f.arrayBuffer())).then(loadBuffers).catch(() => fail('לא הצלחתי לקרוא את הקובץ.'));
+}
+$('file').addEventListener('change', (e) => { handle(e.target.files); e.target.value = ''; });
+const drop = $('drop');
+['dragenter', 'dragover'].forEach((n) => drop.addEventListener(n, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach((n) => drop.addEventListener(n, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', (e) => handle(e.dataTransfer.files));
+$('reset').addEventListener('click', () => { TX = []; $('app').hidden = true; $('start').hidden = false; window.scrollTo(0, 0); });
+</script>
 </body>
 </html>
