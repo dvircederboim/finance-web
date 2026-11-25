@@ -63,6 +63,37 @@ details summary::-webkit-details-marker{display:none}
 .item>b{font-size:17px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .pill{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--mut)}
 .x{border:0;background:none;color:var(--acc-d);font:inherit;font-size:13px;padding:6px 0;min-height:32px;cursor:pointer;text-decoration:underline}
+/* Depth theme (from sketch 4): deep violet, frosted glass, lilac + volt accents */
+:root{--acc:#E6FF3A;--acc-d:#E6FF3A;--fg:#F4F3FF;--mut:#A6A3C7;--line:rgba(255,255,255,.10);--soft:rgba(255,255,255,.07);--ok:#E6FF3A;--bad:#FF8A7A}
+body{color:var(--fg);background:radial-gradient(1200px 700px at 15% -10%,#241C52 0%,#0F0C26 50%,#0A0819 100%) fixed;min-height:100vh}
+h1,h2{color:#F4F3FF}
+.lead{color:#D8D5F0}
+.steps li{color:#E8E6FA}
+.steps b{background:rgba(201,184,255,.16);color:#C9B8FF}
+.drop{background:rgba(255,255,255,.04);border-color:rgba(230,255,58,.45)}
+.drop.over{background:rgba(201,184,255,.12);border-color:#C9B8FF}
+.btn{color:#0F0C26;box-shadow:0 0 24px rgba(230,255,58,.35)}
+.ghost{background:rgba(255,255,255,.06);color:#F4F3FF;border:1px solid rgba(255,255,255,.14)}
+.err{background:rgba(255,90,70,.12);color:#FFB4A8}
+.nav{border-bottom-color:rgba(255,255,255,.10)}
+.tab{color:#A6A3C7}
+.tab[aria-pressed=true]{color:#F4F3FF;border-bottom-color:#C9B8FF}
+.cols{border-bottom-color:rgba(255,255,255,.12)}
+.col span{color:#A6A3C7}
+.mon span{color:#C9C6E6}
+.line{color:#E8E6FA}
+.track{background:rgba(255,255,255,.08)}
+.fill{background:linear-gradient(90deg,#C9B8FF,#E6FF3A);box-shadow:0 0 14px rgba(230,255,58,.3)}
+.card{background:linear-gradient(160deg,rgba(255,255,255,.08),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.10);box-shadow:0 24px 60px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.12);border-radius:20px}
+.card .n{color:#E6FF3A}
+.tx{border-bottom-color:rgba(255,255,255,.07);color:#E8E6FA}
+.item{border-bottom-color:rgba(255,255,255,.10)}
+.item strong{color:#F4F3FF}
+.pill{border-color:rgba(255,255,255,.14);color:#A6A3C7}
+.x{color:#C9B8FF}
+.big{color:#F4F3FF}
+.big.ok{color:#E6FF3A}
+details summary{color:#F4F3FF}
 </style>
 </head>
 <body>
@@ -281,7 +312,7 @@ function render() {
   a.byMonth.forEach((m) => {
     const c = el('div', 'col'), b = el('i');
     b.style.height = Math.max(3, Math.round(m.amount / max * 96)) + 'px';
-    b.style.background = m.amount > a.avg ? 'var(--acc)' : '#cbd5e1';
+    b.style.background = m.amount > a.avg ? 'var(--acc)' : '#4A4670';
     c.title = ml(m.month) + ': ' + ils(m.amount) + ' · ' + m.count + ' עסקאות';
     c.append(el('span', '', '₪' + (m.amount / 1000).toFixed(1) + 'K'), b);
     $('cols').append(c);
