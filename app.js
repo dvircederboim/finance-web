@@ -11,6 +11,44 @@
 
   let allRows = [];
 
+  // Saved data lives in this browser only (localStorage), so it never leaves the device.
+  const STORAGE_KEY = "expense-summary-v1";
+  const clearBtn = document.getElementById("clearBtn");
+
+  function loadSaved() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      return saved && Array.isArray(saved.rows) ? saved : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function rowFromSaved(r) {
+    const date = new Date(r.date);
+    return { ...r, date, monthKey: date.getFullYear() * 100 + date.getMonth() };
+  }
+
+  function rowToSaved(r) {
+    return { ...r, date: r.date.toISOString() };
+  }
+
+  function rowKey(r) {
+    return [r.date.toISOString(), r.description, r.amount, r.category].join("|");
+  }
+
+  function saveRows(rows, fileName) {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ updatedAt: new Date().toISOString(), fileName, rows: rows.map(rowToSaved) })
+      );
+    } catch (e) {
+      showMessage("לא הצלחתי לשמור את הנתונים בדפדפן, הם יישארו רק עד שתסגרו את הדף.");
+    }
+    clearBtn.hidden = !rows.length;
+  }
+
   const fmt = (n) => "₪" + Math.round(n).toLocaleString("en-US");
   const MONTHS = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
 
@@ -233,15 +271,47 @@
       if (!rows.length) {
         throw new Error("לא נמצאו שורות הוצאה תקינות בקובץ.");
       }
-      allRows = rows;
+      // Merge with what is already saved, so each monthly upload adds to the previous ones.
+      const saved = loadSaved();
+      const existing = saved ? saved.rows.map(rowFromSaved) : [];
+      const seen = new Set(existing.map(rowKey));
+      const fresh = rows.filter((r) => !seen.has(rowKey(r)));
+      allRows = existing.concat(fresh);
+      saveRows(allRows, file.name);
+
       fillMonths();
       dashboard.hidden = false;
       render();
+      showMessage(
+        fresh.length
+          ? "נוספו " + fresh.length + " עסקאות חדשות. סה״כ שמורות: " + allRows.length + "."
+          : "לא נוספו עסקאות חדשות, כולן כבר שמורות."
+      );
     } catch (err) {
       dashboard.hidden = true;
       showMessage(err.message || "לא הצלחתי לקרוא את הקובץ.");
     }
   }
+
+  clearBtn.addEventListener("click", () => {
+    if (!confirm("למחוק את כל ההוצאות השמורות בדפדפן הזה?")) return;
+    localStorage.removeItem(STORAGE_KEY);
+    allRows = [];
+    clearBtn.hidden = true;
+    dashboard.hidden = true;
+    showMessage("הנתונים השמורים נמחקו.");
+  });
+
+  // On load, show the saved expenses if there are any.
+  (function restoreSaved() {
+    const saved = loadSaved();
+    if (!saved || !saved.rows.length) return;
+    allRows = saved.rows.map(rowFromSaved);
+    fillMonths();
+    dashboard.hidden = false;
+    clearBtn.hidden = false;
+    render();
+  })();
 
   fileInput.addEventListener("change", (e) => {
     if (e.target.files[0]) handleFile(e.target.files[0]);
