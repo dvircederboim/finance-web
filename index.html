@@ -104,6 +104,25 @@ details summary{color:#F4F3FF}
 .acts .ghost{position:relative;overflow:hidden;display:inline-flex;align-items:center}
 .acts input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
 #install{align-self:center}
+.acts .ghost{white-space:nowrap}
+.info{background:rgba(201,184,255,.12);color:#E8E6FA;border-radius:12px;padding:10px 14px;font-size:14px}
+.pick{font-size:14px;color:#C9C6E6;margin-bottom:10px;min-height:20px}
+.pick b{color:#F4F3FF}
+.chart{position:relative;overflow-x:auto;scrollbar-width:none;padding-top:6px}
+.chart::-webkit-scrollbar{display:none}
+.cols2{position:relative;display:flex;align-items:flex-end;gap:8px;width:max-content;min-width:100%}
+.c2{flex:none;width:38px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;background:none;border:0;padding:0;font:inherit;color:inherit}
+.c2 .bw{height:120px;width:100%;display:flex;align-items:flex-end}
+.c2 i{display:block;width:100%;border-radius:8px 8px 3px 3px;background:#4A4670;transition:background .15s}
+.c2.hi i{background:#C9B8FF}
+.c2.sel i{background:#E6FF3A;box-shadow:0 0 16px rgba(230,255,58,.45)}
+.c2 .ml{height:30px;font-size:11px;line-height:1.3;color:#A6A3C7;text-align:center;white-space:nowrap}
+.c2.sel .ml{color:#F4F3FF;font-weight:700}
+.avgline{position:absolute;left:0;right:0;border-top:1px dashed rgba(230,255,58,.5);pointer-events:none}
+.fold summary{flex-direction:row;justify-content:space-between;align-items:center}
+.fold summary span:first-child{font-size:17px;font-weight:700}
+.more{display:block;margin-top:2px}
+.item .x{min-height:28px;padding:2px 0}
 </style>
 </head>
 <body>
@@ -119,7 +138,7 @@ details summary{color:#F4F3FF}
 
 <main class="wrap" id="app" hidden>
   <div class="top"><span class="mut" id="period"></span><span class="acts"><label class="ghost">הוספת קובץ<input type="file" id="file2" multiple accept=".xlsx,.xls,.csv" aria-label="הוספת קובץ"></label><button type="button" class="ghost" id="reset">מחיקה</button></span></div>
-  <div class="err" id="err2" role="status" hidden></div>
+  <div class="info" id="err2" role="status" hidden></div>
   <nav class="nav" aria-label="לשוניות">
     <button type="button" class="tab" data-tab="overview" aria-pressed="true">סקירה</button>
     <button type="button" class="tab" data-tab="categories" aria-pressed="false">קטגוריות</button>
@@ -129,7 +148,7 @@ details summary{color:#F4F3FF}
 
   <section class="sec" id="overview">
     <div><div class="lbl">ממוצע הוצאות בחודש</div><div class="big" id="avg"></div><div class="sub" id="lastline"></div></div>
-    <div><div class="cols" id="cols" role="img" aria-label="סך ההוצאות בכל חודש"></div><div class="mon" id="mon"></div></div>
+    <div><div class="pick" id="pick"></div><div class="chart" id="chart"><div class="cols2" id="cols"></div></div></div>
     <div class="list"><h2>לאן הכסף הולך</h2><div class="list" id="top4"></div></div>
     <div class="card"><div><div class="lbl">אפשר לחסוך בשנה</div><div class="n ok" id="save1"></div></div><button type="button" class="btn" data-tab="savings">להמלצות</button></div>
   </section>
@@ -147,7 +166,7 @@ details summary{color:#F4F3FF}
   <section class="sec" id="savings" hidden>
     <div><div class="lbl">אפשר לחסוך בשנה</div><div class="big ok" id="save2"></div></div>
     <div id="savlist"></div>
-    <div><h2>חיובים כפולים</h2><div id="duplist"></div></div>
+    <details class="fold" id="dupfold"><summary><span id="duptitle">חיובים כפולים</span><span class="x">הצגה</span></summary><div id="duplist"></div></details>
   </section>
 </main>
 
@@ -255,7 +274,7 @@ function analyze(tx, notRecurring) {
   const subYear = sum(subs, (s) => s.yearly || 0);
 
   const dups = [], dg = {};
-  tx.filter((t) => t.amount > 0).forEach((t) => { const k = t.merchant + '|' + t.amount; (dg[k] = dg[k] || []).push(t); });
+  tx.filter((t) => t.amount >= 20 && t.category !== 'העברות BIT').forEach((t) => { const k = t.merchant + '|' + t.amount; (dg[k] = dg[k] || []).push(t); });
   Object.keys(dg).forEach((k) => {
     const g = dg[k].slice().sort((a, b) => a.date.localeCompare(b.date));
     if (g.length < 2) return;
@@ -291,6 +310,16 @@ function bar(name, value, share, max, amount) {
   track.append(fill); row.append(line, track);
   return row;
 }
+// A row with a title and an amount; the explanation opens only when "פירוט" is tapped.
+function foldItem(title, value, cls, detail) {
+  const row = el('div', 'item'), left = el('div'), more = el('small', 'more', detail), btn = el('button', 'x', 'פירוט');
+  btn.type = 'button';
+  more.hidden = true;
+  btn.addEventListener('click', () => { more.hidden = !more.hidden; btn.textContent = more.hidden ? 'פירוט' : 'הסתרה'; });
+  left.append(el('strong', '', title), btn, more);
+  row.append(left, el('b', cls || '', value));
+  return row;
+}
 function item(title, sub, value, cls) {
   const row = el('div', 'item'), left = el('div');
   left.append(el('strong', '', title), el('small', '', sub));
@@ -312,17 +341,36 @@ function render() {
     ll.append(ml(lm.month) + ': ', el('b', '', ils(lm.amount)), ' · ', el('span', p <= 0 ? 'ok' : 'bad', (p > 0 ? '+' : '') + p + '%'), ' מול הממוצע');
   }
 
+  // Monthly chart: fixed-width columns that scroll sideways, newest month selected. Tap a month to see its total.
+  const SHORT = ['ינו׳','פבר׳','מרץ','אפר׳','מאי','יוני','יולי','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'];
   const max = Math.max.apply(null, a.byMonth.map((m) => m.amount)) || 1;
-  $('cols').replaceChildren(); $('mon').replaceChildren();
-  a.byMonth.forEach((m) => {
-    const c = el('div', 'col'), b = el('i');
-    b.style.height = Math.max(3, Math.round(m.amount / max * 96)) + 'px';
-    b.style.background = m.amount > a.avg ? 'var(--acc)' : '#4A4670';
-    c.title = ml(m.month) + ': ' + ils(m.amount) + ' · ' + m.count + ' עסקאות';
-    c.append(el('span', '', '₪' + (m.amount / 1000).toFixed(1) + 'K'), b);
-    $('cols').append(c);
-    $('mon').append(el('span', '', a.n > 7 ? ml(m.month).slice(0, 3) : ml(m.month)));
+  const cols = $('cols');
+  cols.replaceChildren();
+  const pick = (m, node) => {
+    Array.from(cols.children).forEach((c) => c.classList.remove('sel'));
+    node.classList.add('sel');
+    $('pick').replaceChildren(MONTHS[+m.month.slice(5, 7) - 1] + ' ' + m.month.slice(0, 4) + ' · ', el('b', '', ils(m.amount)), ' · ' + m.count + ' עסקאות');
+  };
+  let lastCol = null;
+  a.byMonth.forEach((m, i) => {
+    const c = el('button', 'c2' + (m.amount > a.avg ? ' hi' : '')), bw = el('span', 'bw'), b = el('i');
+    c.type = 'button';
+    b.style.height = Math.max(4, Math.round(m.amount / max * 120)) + 'px';
+    bw.append(b);
+    const mo = +m.month.slice(5, 7);
+    const label = el('span', 'ml', SHORT[mo - 1]);
+    if (i === 0 || mo === 1) { label.append(document.createElement('br'), '’' + m.month.slice(2, 4)); }
+    c.append(bw, label);
+    c.addEventListener('click', () => pick(m, c));
+    cols.append(c);
+    lastCol = c;
   });
+  const avgLine = el('div', 'avgline');
+  avgLine.style.bottom = (36 + Math.round(a.avg / max * 120)) + 'px';
+  cols.append(avgLine);
+  if (lastCol) pick(a.byMonth[a.byMonth.length - 1], lastCol);
+  const chart = $('chart');
+  chart.scrollLeft = -chart.scrollWidth; // RTL: newest month is on the left end
 
   const top = a.byCat[0] ? a.byCat[0].amount : 1;
   $('top4').replaceChildren.apply($('top4'), a.byCat.slice(0, 4).map((c) => bar(c.category, ils(c.amount), null, top, c.amount)));
@@ -360,13 +408,13 @@ function render() {
   $('savlist').replaceChildren();
   if (!a.sav.length) $('savlist').append(el('div', 'sub mut', 'לא נמצאו המלצות בנתונים האלה'));
   a.sav.forEach((s) => {
-    const row = item(s.title, s.detail, s.yearly == null ? 'לבדוק' : ils(s.yearly), s.yearly == null ? 'mut' : 'ok');
-    row.firstChild.append(el('span', 'pill', s.effort));
-    $('savlist').append(row);
+    $('savlist').append(foldItem(s.title, s.yearly == null ? 'לבדוק' : ils(s.yearly), s.yearly == null ? 'mut' : 'ok', s.detail + ' · ' + s.effort));
   });
   $('duplist').replaceChildren();
-  if (!a.dups.length) $('duplist').append(el('div', 'sub mut', 'לא נמצאו חיובים כפולים'));
-  a.dups.forEach((d) => $('duplist').append(item(d.merchant, d.dates + ' · ' + d.verdict, d.times + ' × ' + ils2(d.amount), d.flag ? 'bad' : '')));
+  const toCheck = a.dups.filter((d) => d.flag).length;
+  $('duptitle').textContent = 'חיובים כפולים' + (a.dups.length ? ' · ' + (toCheck ? toCheck + ' לבדיקה' : a.dups.length) : '');
+  if (!a.dups.length) $('duplist').append(el('div', 'sub mut', 'לא נמצאו'));
+  a.dups.forEach((d) => $('duplist').append(foldItem(d.merchant, d.times + ' × ' + ils2(d.amount), d.flag ? 'bad' : '', d.dates + ' · ' + d.verdict)));
 }
 
 function openTab(id) {
@@ -380,7 +428,12 @@ const STORE = 'finance-tx-v1', STORE_NR = 'finance-notrec-v1';
 function save() {
   try { localStorage.setItem(STORE, JSON.stringify(TX)); localStorage.setItem(STORE_NR, JSON.stringify(Array.from(notRecurring))); } catch (e) {}
 }
-function fail(msg) { const box = $('app').hidden ? $('err') : $('err2'); box.textContent = msg; box.hidden = false; }
+let infoTimer = null;
+function fail(msg) {
+  const box = $('app').hidden ? $('err') : $('err2');
+  box.textContent = msg; box.hidden = false;
+  if (box.id === 'err2') { clearTimeout(infoTimer); infoTimer = setTimeout(() => { box.hidden = true; }, 4000); }
+}
 function showApp() {
   $('err').hidden = true; $('start').hidden = true; $('app').hidden = false;
   openTab('overview'); render();
