@@ -3,7 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>מנתח הוצאות אשראי</title>
+<title>לאן הכסף הולך</title>
+<meta name="theme-color" content="#0F0C26">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="הכסף שלי">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -94,27 +100,26 @@ h1,h2{color:#F4F3FF}
 .big{color:#F4F3FF}
 .big.ok{color:#E6FF3A}
 details summary{color:#F4F3FF}
+      .acts{display:flex;gap:8px}
+.acts .ghost{position:relative;overflow:hidden;display:inline-flex;align-items:center}
+.acts input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0}
+#install{align-self:center}
 </style>
 </head>
 <body>
 <main class="wrap" id="start">
-  <h1>לאן הכסף שלך הולך?</h1>
-  <p class="lead">מעלים את פירוט האשראי מאקסל, ומקבלים חלוקה לקטגוריות, ממוצעים, מנויים והמלצות לחיסכון.</p>
-  <ol class="steps">
-    <li><b>1</b><span>מייצאים לאקסל את פירוט העסקאות מאתר חברת האשראי</span></li>
-    <li><b>2</b><span>בוחרים כאן את הקובץ (אפשר כמה קבצים יחד)</span></li>
-    <li><b>3</b><span>מקבלים את התמונה המלאה תוך שנייה</span></li>
-  </ol>
+  <h1>לאן הכסף שלכם הולך?</h1>
+  <p class="lead">בואו נבין לאן הכסף הולך, איפה אפשר לחסוך, ואיפה להשקיע אותו</p>
   <div class="drop" id="drop">
-    <label class="btn">בחירת קובץ אקסל<input type="file" id="file" multiple aria-label="בחירת קובץ אקסל"></label>
-    <span class="note">או לגרור לכאן קובץ ‎.xlsx / .csv</span>
+    <label class="btn">בחירת קובץ אקסל<input type="file" id="file" multiple accept=".xlsx,.xls,.csv" aria-label="בחירת קובץ אקסל"></label>
   </div>
   <div class="err" id="err" role="alert" hidden></div>
-  <p class="note">הקובץ נקרא ומעובד בדפדפן שלך בלבד. שום נתון לא נשלח ולא נשמר. נבדק עם ייצוא של מקס; קבצים של חברות אחרות יעבדו אם יש בהם עמודות תאריך, שם בית עסק וסכום חיוב.</p>
+  <button type="button" class="ghost" id="install" hidden>הוספה למסך הבית</button>
 </main>
 
 <main class="wrap" id="app" hidden>
-  <div class="top"><span class="mut" id="period"></span><button type="button" class="ghost" id="reset">קובץ אחר</button></div>
+  <div class="top"><span class="mut" id="period"></span><span class="acts"><label class="ghost">הוספת קובץ<input type="file" id="file2" multiple accept=".xlsx,.xls,.csv" aria-label="הוספת קובץ"></label><button type="button" class="ghost" id="reset">מחיקה</button></span></div>
+  <div class="err" id="err2" role="status" hidden></div>
   <nav class="nav" aria-label="לשוניות">
     <button type="button" class="tab" data-tab="overview" aria-pressed="true">סקירה</button>
     <button type="button" class="tab" data-tab="categories" aria-pressed="false">קטגוריות</button>
@@ -130,7 +135,7 @@ details summary{color:#F4F3FF}
   </section>
 
   <section class="sec" id="categories" hidden>
-    <div><div class="lbl" id="totlbl"></div><div class="big" id="total"></div><div class="sub mut">ממוצע לחודש בכל קטגוריה · לחיצה פותחת את העסקאות</div></div>
+    <div><div class="lbl" id="totlbl"></div><div class="big" id="total"></div></div>
     <div class="list" id="cats"></div>
   </section>
 
@@ -140,7 +145,7 @@ details summary{color:#F4F3FF}
   </section>
 
   <section class="sec" id="savings" hidden>
-    <div><div class="lbl">אפשר לחסוך בשנה</div><div class="big ok" id="save2"></div><div class="sub mut">הערכה לפי הקצב של התקופה שבקובץ</div></div>
+    <div><div class="lbl">אפשר לחסוך בשנה</div><div class="big ok" id="save2"></div></div>
     <div id="savlist"></div>
     <div><h2>חיובים כפולים</h2><div id="duplist"></div></div>
   </section>
@@ -305,7 +310,7 @@ function render() {
   if (a.n > 1) {
     const p = Math.round((lm.amount / a.avg - 1) * 100);
     ll.append(ml(lm.month) + ': ', el('b', '', ils(lm.amount)), ' · ', el('span', p <= 0 ? 'ok' : 'bad', (p > 0 ? '+' : '') + p + '%'), ' מול הממוצע');
-  } else ll.append(el('span', 'mut', 'יש בקובץ חודש אחד בלבד. עם כמה חודשים הממוצעים מדויקים יותר.'));
+  }
 
   const max = Math.max.apply(null, a.byMonth.map((m) => m.amount)) || 1;
   $('cols').replaceChildren(); $('mon').replaceChildren();
@@ -347,7 +352,7 @@ function render() {
     const row = item(s.name, (s.fee ? 'עמלה' : 'מנוי') + (s.card ? ' · כרטיס ' + s.card : '') + (s.monthly ? ' · ' + ils(s.yearly) + ' בשנה' : ' · חיוב אחד בתקופה'), ils(s.avg) + (s.monthly ? ' לחודש' : ''));
     const x = el('button', 'x', 'זה לא חיוב קבוע');
     x.type = 'button';
-    x.addEventListener('click', () => { notRecurring.add(s.key); render(); });
+    x.addEventListener('click', () => { notRecurring.add(s.key); save(); render(); });
     row.firstChild.append(x);
     $('sublist').append(row);
   });
@@ -371,33 +376,73 @@ function openTab(id) {
 }
 document.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => openTab(b.dataset.tab)));
 
-function fail(msg) { $('err').textContent = msg; $('err').hidden = false; }
+const STORE = 'finance-tx-v1', STORE_NR = 'finance-notrec-v1';
+function save() {
+  try { localStorage.setItem(STORE, JSON.stringify(TX)); localStorage.setItem(STORE_NR, JSON.stringify(Array.from(notRecurring))); } catch (e) {}
+}
+function fail(msg) { const box = $('app').hidden ? $('err') : $('err2'); box.textContent = msg; box.hidden = false; }
+function showApp() {
+  $('err').hidden = true; $('start').hidden = true; $('app').hidden = false;
+  openTab('overview'); render();
+}
+// Adds new transactions to the saved ones. A transaction already saved (same date, business, amount and card)
+// is not added again, so uploading an overlapping file twice does not double it.
+function merge(tx) {
+  const key = (t) => [t.date, t.merchant, t.amount, t.card].join('|');
+  const have = {};
+  TX.forEach((t) => { have[key(t)] = (have[key(t)] || 0) + 1; });
+  const seen = {}, added = [];
+  tx.forEach((t) => { const k = key(t); seen[k] = (seen[k] || 0) + 1; if (seen[k] > (have[k] || 0)) added.push(t); });
+  TX = TX.concat(added);
+  return added.length;
+}
 function loadBuffers(buffers) {
-  if (typeof XLSX === 'undefined') { fail('רכיב קריאת האקסל לא נטען. בדוק את החיבור לאינטרנט ורענן את הדף.'); return; }
+  if (typeof XLSX === 'undefined') { fail('אין חיבור לאינטרנט. נסו שוב.'); return; }
   let tx = [];
   try {
     buffers.forEach((buf) => {
       const wb = XLSX.read(buf, { type: 'array', cellDates: true });
       wb.SheetNames.forEach((name) => { tx = tx.concat(parseSheet(XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: null }), name)); });
     });
-  } catch (e) { fail('לא הצלחתי לפתוח את הקובץ. ודא שזה קובץ אקסל (‎.xlsx) או CSV.'); return; }
-  if (!tx.length) { fail('לא מצאתי עסקאות בקובץ. צריך טבלה עם עמודות תאריך, שם בית עסק וסכום חיוב.'); return; }
-  TX = tx; notRecurring.clear();
-  $('err').hidden = true; $('start').hidden = true; $('app').hidden = false;
-  openTab('overview'); render();
+  } catch (e) { fail('לא הצלחתי לפתוח את הקובץ.'); return; }
+  if (!tx.length) { fail('לא נמצאו עסקאות בקובץ.'); return; }
+  const wasEmpty = !TX.length;
+  const added = merge(tx);
+  save();
+  showApp();
+  if (!wasEmpty) fail(added ? 'נוספו ' + added + ' עסקאות.' : 'כל העסקאות בקובץ כבר קיימות.');
 }
 window.loadBuffers = loadBuffers;
 function handle(files) {
   const list = Array.from(files || []);
   if (!list.length) return;
+  $('err2').hidden = true;
   Promise.all(list.map((f) => f.arrayBuffer())).then(loadBuffers).catch(() => fail('לא הצלחתי לקרוא את הקובץ.'));
 }
-$('file').addEventListener('change', (e) => { handle(e.target.files); e.target.value = ''; });
+['file', 'file2'].forEach((id) => $(id).addEventListener('change', (e) => { handle(e.target.files); e.target.value = ''; }));
 const drop = $('drop');
 ['dragenter', 'dragover'].forEach((n) => drop.addEventListener(n, (e) => { e.preventDefault(); drop.classList.add('over'); }));
 ['dragleave', 'drop'].forEach((n) => drop.addEventListener(n, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
 drop.addEventListener('drop', (e) => handle(e.dataTransfer.files));
-$('reset').addEventListener('click', () => { TX = []; $('app').hidden = true; $('start').hidden = false; window.scrollTo(0, 0); });
+$('reset').addEventListener('click', () => {
+  if (!confirm('למחוק את כל הנתונים השמורים?')) return;
+  TX = []; notRecurring.clear();
+  try { localStorage.removeItem(STORE); localStorage.removeItem(STORE_NR); } catch (e) {}
+  $('err2').hidden = true; $('app').hidden = true; $('start').hidden = false; window.scrollTo(0, 0);
+});
+
+// Restore what was uploaded before.
+try {
+  const saved = JSON.parse(localStorage.getItem(STORE) || '[]');
+  JSON.parse(localStorage.getItem(STORE_NR) || '[]').forEach((k) => notRecurring.add(k));
+  if (Array.isArray(saved) && saved.length) { TX = saved; showApp(); }
+} catch (e) {}
+
+// Home-screen app: offline support and an install button where the browser allows it.
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; $('install').hidden = false; });
+$('install').addEventListener('click', () => { if (!installEvt) return; installEvt.prompt(); installEvt = null; $('install').hidden = true; });
 </script>
 </body>
 </html>
