@@ -149,7 +149,7 @@ details summary{color:#F4F3FF}
   <section class="sec" id="overview">
     <div><div class="lbl">ממוצע הוצאות בחודש</div><div class="big" id="avg"></div><div class="sub" id="lastline"></div></div>
     <div><div class="pick" id="pick"></div><div class="chart" id="chart"><div class="cols2" id="cols"></div></div></div>
-    <div class="list"><h2>לאן הכסף הולך</h2><div class="list" id="top4"></div></div>
+    <div class="list"><h2 id="top4title">לאן הכסף הולך</h2><div class="list" id="top4"></div></div>
     <div class="card"><div><div class="lbl">אפשר לחסוך בשנה</div><div class="n ok" id="save1"></div></div><button type="button" class="btn" data-tab="savings">להמלצות</button></div>
   </section>
 
@@ -350,6 +350,13 @@ function render() {
     Array.from(cols.children).forEach((c) => c.classList.remove('sel'));
     node.classList.add('sel');
     $('pick').replaceChildren(MONTHS[+m.month.slice(5, 7) - 1] + ' ' + m.month.slice(0, 4) + ' · ', el('b', '', ils(m.amount)), ' · ' + m.count + ' עסקאות');
+    // "Where the money goes" follows the selected month.
+    const mc = {};
+    TX.filter((t) => t.month === m.month).forEach((t) => { mc[t.category] = (mc[t.category] || 0) + t.amount; });
+    const list = Object.keys(mc).map((k) => ({ category: k, amount: mc[k] })).filter((c) => c.amount > 0).sort((x, y) => y.amount - x.amount);
+    const mtop = list[0] ? list[0].amount : 1;
+    $('top4title').textContent = 'לאן הכסף הולך ב' + MONTHS[+m.month.slice(5, 7) - 1];
+    $('top4').replaceChildren.apply($('top4'), list.slice(0, 4).map((c) => bar(c.category, ils(c.amount), m.amount > 0 ? Math.round(c.amount / m.amount * 100) : null, mtop, c.amount)));
   };
   let lastCol = null;
   a.byMonth.forEach((m, i) => {
@@ -373,7 +380,6 @@ function render() {
   chart.scrollLeft = -chart.scrollWidth; // RTL: newest month is on the left end
 
   const top = a.byCat[0] ? a.byCat[0].amount : 1;
-  $('top4').replaceChildren.apply($('top4'), a.byCat.slice(0, 4).map((c) => bar(c.category, ils(c.amount), null, top, c.amount)));
   $('save1').textContent = $('save2').textContent = ils(a.savYear);
 
   $('totlbl').textContent = 'סה״כ ב-' + a.n + (a.n === 1 ? ' חודש' : ' חודשים');
